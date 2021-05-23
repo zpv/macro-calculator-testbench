@@ -16,7 +16,7 @@ const generateFixtures = (
           calories:
             minCalories +
             Math.floor(Math.random() * (maxCalories - minCalories)),
-          protein: Math.floor(Math.random() * 30),
+          protein: Math.floor(Math.random() * 40),
           fat: Math.floor(Math.random() * 25),
         },
       };
