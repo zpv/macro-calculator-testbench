@@ -1,6 +1,10 @@
+export type Macros = {
+  calories: number;
+  fat: number;
+  protein: number;
+};
+
 export type MealItem = {
   name: string;
-  calories: number;
-  fat?: number;
-  protein?: number;
+  macros: Macros;
 };

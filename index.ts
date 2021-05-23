@@ -3,10 +3,11 @@ import dinnerItems from "./fixtures/dinner.json";
 import lunchItems from "./fixtures/lunch.json";
 import snackItems from "./fixtures/snack.json";
 import workoutItems from "./fixtures/workout.json";
-import { MealItem } from "./types";
+import { Macros, MealItem } from "./types";
 
-const threshold = 100;
-const target = parseInt(process.argv[2]);
+const targetCalories = parseInt(process.argv[2]);
+const targetProtein = parseInt(process.argv[3]);
+const targetFat = Math.floor((targetCalories * 0.2) / 9); // 9 calories per gram of fat. target: 20% of total calories
 
 const _groups: MealItem[][] = [
   breakfastItems,
@@ -16,33 +17,56 @@ const _groups: MealItem[][] = [
   dinnerItems,
 ];
 
-/** Helpers */
-const withinThreshold = (num: number) =>
-  num > target - threshold && num < target + threshold;
+const THRESHOLD_CALORIES = 100; // should fit within 100 calories of their target calories
+const THRESHOLD_PROTEIN = 20; // should fit within 20 grams of target protein
 
-// O(n^5) brute force problem
+/** Helpers */
+const withinThreshold = ({ calories, protein, fat }: Macros) =>
+  calories > targetCalories - THRESHOLD_CALORIES &&
+  calories < targetCalories + THRESHOLD_CALORIES &&
+  protein > targetProtein - THRESHOLD_PROTEIN &&
+  protein < targetProtein + THRESHOLD_PROTEIN &&
+  fat >= targetFat; // should be at least 20% of total calories
+
+const exceedsThreshold = ({ calories, protein }: Macros) =>
+  calories > targetCalories + THRESHOLD_CALORIES ||
+  protein > targetProtein + THRESHOLD_PROTEIN;
+
 const compute = (groups: MealItem[][]) => {
   const reducer = (
     acc: MealItem[],
-    accCalories: number,
+    accMacros: Macros,
     cur: MealItem,
     index: number
-  ) => {
-    const calories = accCalories + cur.calories;
+  ): MealItem[] | false => {
+    const macros: Macros = {
+      calories: accMacros.calories + cur.macros.calories,
+      protein: accMacros.protein + cur.macros.protein,
+      fat: accMacros.fat + cur.macros.fat,
+    };
 
+    if (exceedsThreshold(macros)) return false;
     if (!groups[index + 1]) {
-      return withinThreshold(calories) ? [...acc, cur] : [];
+      return withinThreshold(macros) ? [...acc, cur] : false;
+    } else {
+      for (const foodItem of groups[index + 1]) {
+        const mealPlan = reducer([...acc, cur], macros, foodItem, index + 1);
+        if (mealPlan) return mealPlan;
+      }
     }
-
-    return groups[index + 1].map((foodItem) =>
-      reducer([...acc, cur], calories, foodItem, index + 1)
-    );
+    return false;
   };
 
-  return groups[0]
-    .map((foodItem) => reducer([], 0, foodItem, 0))
-    .flat(groups.length - 1)
-    .filter((arr) => arr.length !== 0);
+  for (const foodItem of groups[0]) {
+    const mealPlan = reducer(
+      [],
+      { calories: 0, protein: 0, fat: 0 },
+      foodItem,
+      0
+    );
+    if (mealPlan) return mealPlan;
+  }
+  return false;
 };
 
 const buildMealPlan = (days: number) => {
@@ -50,12 +74,11 @@ const buildMealPlan = (days: number) => {
 
   let groups = _groups;
   for (let i = 0; i < days; i++) {
-    const candidates = compute(groups);
-    const meal = candidates[Math.floor(Math.random() * candidates.length)];
+    const meal = compute(groups);
 
     result.push(meal);
 
-    // filter select meals from viable meals
+    // filter selected meals from viable meals
     groups = groups.map((group, i) =>
       group.filter((foodItem) => foodItem !== meal[i])
     );
@@ -65,31 +88,21 @@ const buildMealPlan = (days: number) => {
 };
 
 const prettyPrint = (mealPlans: MealItem[][]) => {
-  const printMealInformation = (groupName: string, mealItem: MealItem) => {
-    return `|
-| ${groupName}:                     
-|                                    
-|      Name: ${mealItem.name}        
-|      Calories: ${mealItem.calories}    
-|      Protein: ${mealItem.protein}    
-|      Fat: ${mealItem.fat}            
-|                                    
----------------------------`;
-  };
-
-  const days: string[] = [];
-  mealPlans.forEach((mealPlan, index) => {
-    days.push(`
-|====== Meal (Day ${index + 1}) =======
-${printMealInformation("Breakfast", mealPlan[0])}
-${printMealInformation("Snack", mealPlan[1])}
-${printMealInformation("Lunch", mealPlan[2])}
-${printMealInformation("Workout", mealPlan[3])}
-${printMealInformation("Dinner", mealPlan[4])}
-    `);
-  });
-
-  days.forEach((day) => console.log(day));
+  console.table(
+    mealPlans.reduce(
+      (acc, mealPlan) => {
+        mealPlan.forEach((mealItem, i) => {
+          if (!acc[i]) acc[i] = [];
+          acc[i] = [
+            ...acc[i],
+            `Name: ${mealItem.name}\nCalories: ${mealItem.macros.calories}`,
+          ];
+        });
+        return acc;
+      },
+      [[]]
+    )
+  );
 };
 
-prettyPrint(buildMealPlan(2));
+prettyPrint(buildMealPlan(3));

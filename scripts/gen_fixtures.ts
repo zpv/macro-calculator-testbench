@@ -7,15 +7,21 @@ const generateFixtures = (
   maxCalories: number,
   numRecipes: number
 ) => {
-  const fixtures: MealItem[] = new Array(numRecipes).fill(0).map((_, i) => {
-    return {
-      name: `${name}-${i}`,
-      calories:
-        minCalories + Math.floor(Math.random() * (maxCalories - minCalories)),
-      protein: Math.floor(Math.random() * 30),
-      fat: Math.floor(Math.random() * 25),
-    };
-  });
+  const fixtures: MealItem[] = new Array(numRecipes)
+    .fill(0)
+    .map((_, i) => {
+      return {
+        name: `${name}-${i}`,
+        macros: {
+          calories:
+            minCalories +
+            Math.floor(Math.random() * (maxCalories - minCalories)),
+          protein: Math.floor(Math.random() * 30),
+          fat: Math.floor(Math.random() * 25),
+        },
+      };
+    })
+    .sort((a, b) => a.macros.calories - b.macros.calories);
   fs.writeFileSync(`./fixtures/${name}.json`, JSON.stringify(fixtures));
 };
 
